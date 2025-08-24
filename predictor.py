@@ -36,7 +36,8 @@ def ArgsGet():
     parse = argparse.ArgumentParser(description='ToxMSRC')
     parse.add_argument('--file', type=str, default='Raw data/test1.fasta', help='fasta file')
     parse.add_argument('--outfile', type=str, default='supple_test.fasta', help='fasta file')
-    parse.add_argument('--out_path', type=str, default='result', help='output path')
+    parse.add_argument('--out_path', type=str, default='result', help='output CSV file (full path incl. filename)') #must be a path .csv file
+    parse.add_argument('--tox_threshold', type=float, default=0.5, help='probability threshold for toxic peptide (default=0.5)')
     args = parse.parse_args()
     return args
 
@@ -106,12 +107,20 @@ def process_data(file, outfile):
     return data
 
 
-def predict(model, data, output_path):
+def predict(model, data, output_path, tox_threshold, seq_ids=None): #updated in format useful for high-throughput experimentation
     model.load_weights('model/ToxMSRC.h5')
-    y_p = model.predict([data])
-    # output_file = os.path.join(output_path, 'result.txt')
-    print(y_p)
-    # np.savetxt(output_file, y_p[:, 1])
+    y_p = model.predict([data])   # shape (N, 2): [non-tox, tox]
+
+    # build dataframe
+    df = pd.DataFrame({
+        "Id": seq_ids if seq_ids is not None else range(len(y_p)),
+        "Prob_NonTox": y_p[:, 0],
+        "Prob_Tox": y_p[:, 1],
+    })
+    df["Predicted_Label"] = (df["Prob_Tox"] >= tox_threshold).astype(int)
+    output_file = os.path.join(output_path) #updated to allow flexible filename 
+    df.to_csv(output_file, index=False)
+    print(f"Saved results to {output_file}")
 
 
 if __name__ == '__main__':
@@ -120,7 +129,7 @@ if __name__ == '__main__':
     outfile = args.outfile
     output_path = args.out_path
     # building output path directory
-    Path(output_path).mkdir(exist_ok=True)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
     # reading file
     data = process_data(file, outfile)
@@ -137,4 +146,4 @@ if __name__ == '__main__':
         X_test.append(s)
     X_test = np.array(X_test)
     model = ourmodel()
-    predict(model, X_test, output_path)
+    predict(model, X_test, output_path, tox_threshold)
