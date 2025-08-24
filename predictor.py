@@ -128,6 +128,7 @@ if __name__ == '__main__':
     file = args.file
     outfile = args.outfile
     output_path = args.out_path
+    tox_threshold = args.tox_threshold
     # building output path directory
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
